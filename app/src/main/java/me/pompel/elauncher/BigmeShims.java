@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 
 /* BIGME shim. Since the default launcher is used to control the gestures, we need to recreate the process,
  * if it has been killed. We will do that every time we enter this launcher, and everytime we reload, for now.
@@ -53,6 +54,6 @@ public class BigmeShims {
         filter.addAction("android.intent.action.HIDE_BAKCLOGO");
         filter.addAction("android.intent.action.SHOW_BACKLOGO");
         UnlockReceiver unlockReceiver = new UnlockReceiver();
-        context.registerReceiver(unlockReceiver, filter, context.RECEIVER_EXPORTED);
+        ContextCompat.registerReceiver(context, unlockReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 }
