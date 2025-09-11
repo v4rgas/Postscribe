@@ -23,7 +23,10 @@ import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.Typeface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.Editable;
@@ -44,6 +47,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +69,11 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String ELAUNCHER_PACKAGE = "me.pompel.elauncher";
     private recyclerAdapter adapter;
+    private boolean isBackGesture = false;
+    private float startX = 0f;
+    private float startY = 0f;
+    private boolean isLeftEdge = false;
+    private boolean isRightEdge = false;
 
     private void loadApps() {
         appList.clear();
@@ -167,7 +176,65 @@ public class MainActivity extends AppCompatActivity {
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    @Override public void onBackPressed() { if (findViewById(R.id.AppDrawer).getVisibility() == View.VISIBLE) changeLayout(true, true); }
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        switch (ev.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                startX = ev.getX();
+                startY = ev.getY();
+                // Check if touch started from left or right edge (within 50dp)
+                float edgeThreshold = 50 * getResources().getDisplayMetrics().density;
+                int screenWidth = getResources().getDisplayMetrics().widthPixels;
+                
+                isLeftEdge = startX < edgeThreshold;
+                isRightEdge = startX > (screenWidth - edgeThreshold);
+                isBackGesture = false;
+                break;
+                
+            case MotionEvent.ACTION_MOVE:
+                if (isLeftEdge || isRightEdge) {
+                    float currentX = ev.getX();
+                    float currentY = ev.getY();
+                    float deltaX = currentX - startX;
+                    float deltaY = currentY - startY;
+                    
+                    // Only consider horizontal swipes (more horizontal than vertical)
+                    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100) {
+                        if (isLeftEdge && deltaX > 0) {
+                            // Left edge swipe to the right (back gesture)
+                            isBackGesture = true;
+                        } else if (isRightEdge && deltaX < 0) {
+                            // Right edge swipe to the left (back gesture)  
+                            isBackGesture = true;
+                        }
+                    }
+                }
+                break;
+                
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                // Reset flags when touch ends
+                break;
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @Override 
+    public void onBackPressed() { 
+        if (isBackGesture) {
+            // Block back gestures - do nothing
+        } else if (isLeftEdge) {
+            // Left edge swipe - open phone dialer or camera (same as right swipe in SwipeListener)
+            safeStartActivity(new Intent(canMakePhoneCall() ? Intent.ACTION_DIAL : MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA));
+        } else if (isRightEdge) {
+            // Right edge swipe - open default browser (same as left swipe in SwipeListener)
+            safeStartActivity(getDefaultBrowserIntent());
+        }
+        // Reset flags
+        isBackGesture = false;
+        isLeftEdge = false;
+        isRightEdge = false;
+    }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
