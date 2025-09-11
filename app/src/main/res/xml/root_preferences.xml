@@ -11,6 +11,5 @@
     <SwitchPreferenceCompat
         app:key="dark_mode_preference"
         app:title="@string/dark_mode_title"
-        app:summary="@string/dark_mode_summary"
-        app:defaultValue="false" />
+        app:summary="@string/dark_mode_summary" />
 </PreferenceScreen>

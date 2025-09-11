@@ -79,6 +79,22 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
+            
+            // Initialize dark mode switch to show current system state if not explicitly set
+            androidx.preference.SwitchPreferenceCompat darkModePreference = 
+                findPreference("dark_mode_preference");
+            if (darkModePreference != null) {
+                android.content.SharedPreferences prefs = 
+                    androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+                
+                // Only set the visual state if the preference hasn't been explicitly set
+                if (!prefs.contains("dark_mode_preference")) {
+                    boolean systemDarkMode = (getResources().getConfiguration().uiMode & 
+                            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+                            android.content.res.Configuration.UI_MODE_NIGHT_YES;
+                    darkModePreference.setChecked(systemDarkMode);
+                }
+            }
         }
     }
 }
