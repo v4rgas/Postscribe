@@ -1,4 +1,29 @@
-# eLauncher
+# eLauncher (KitKat fork)
+
+Fork of [thypon/eLauncher](https://github.com/thypon/eLauncher) backported to **Android 4.4 (API 19)**. Tested on a MobiScribe E60QR2 (Netronix `ntx_6sl`).
+
+## What changed from upstream
+
+- AGP 8.5.2 → 7.4.2, Gradle 8.7 → 7.5.
+- `minSdk` 24 → 19, `targetSdk`/`compileSdk` 34 → 28.
+- AndroidX downgraded: appcompat 1.3.1, recyclerview 1.2.1, preference 1.1.1, constraintlayout 2.0.4.
+- API 21+ paths guarded behind `SDK_INT >= LOLLIPOP`: UsageStats lookups, `Window.setStatusBarColor`/`setNavigationBarColor`, `Settings.ACTION_USAGE_ACCESS_SETTINGS`. The Bigme HiBreak shim is a no-op here.
+- Java 8 APIs not in KitKat replaced: `String.chars().mapToObj()` → for loop, `ArrayList.sort(lambda)` → `Collections.sort`, `Iterable.forEach(Consumer)` → for loop, `TypedArray` try-with-resources → try/finally.
+- `?attr/...` in `res/drawable/search_bar_background.xml` replaced with literal colors. KitKat cannot resolve theme attrs inside drawable XML.
+- Home grid renders only assigned slots plus a trailing `+`, instead of a fixed 8 placeholders. Tap `+` to add, tap a slot to launch, long-press to edit or remove.
+
+## Build
+
+```sh
+ANDROID_HOME=/opt/android-sdk JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew assembleRelease
+adb install app/build/outputs/apk/release/app-release.apk
+```
+
+Needs SDK platform-19, platform-28, build-tools 30.0.3, JDK 17.
+
+---
+
+## Upstream README
 
 eLauncher is an extremely lightweight and minimal launcher for Android, based on NoLauncher and inspired by [OLauncher Light](https://github.com/tanujnotes/Ultra/), and OLauncher in general. It is even more barebones than OLauncher Light, and aims to provide only the most basic features.
 
