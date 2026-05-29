@@ -10,7 +10,18 @@ Fork of [thypon/eLauncher](https://github.com/thypon/eLauncher) backported to **
 - API 21+ paths guarded behind `SDK_INT >= LOLLIPOP`: UsageStats lookups, `Window.setStatusBarColor`/`setNavigationBarColor`, `Settings.ACTION_USAGE_ACCESS_SETTINGS`. The Bigme HiBreak shim is a no-op here.
 - Java 8 APIs not in KitKat replaced: `String.chars().mapToObj()` → for loop, `ArrayList.sort(lambda)` → `Collections.sort`, `Iterable.forEach(Consumer)` → for loop, `TypedArray` try-with-resources → try/finally.
 - `?attr/...` in `res/drawable/search_bar_background.xml` replaced with literal colors. KitKat cannot resolve theme attrs inside drawable XML.
-- Home grid renders only assigned slots plus a trailing `+`, instead of a fixed 8 placeholders. Tap `+` to add, tap a slot to launch, long-press to edit or remove.
+
+## Home grid behavior change
+
+Upstream renders a fixed 8 slots labeled "App" until you long-press each to assign one. On a device with only 2 or 3 apps you actually want, that wastes most of the screen.
+
+This fork only renders slots that have an app assigned, plus one trailing `+` tile.
+
+- Tap `+` to pick an app and name it.
+- Tap an assigned slot to launch.
+- Long-press an assigned slot to rename, reassign, or remove it.
+
+Removing a slot via the "Remove" button in the long-press dialog clears that slot's prefs and the grid redraws.
 
 ## Build
 
