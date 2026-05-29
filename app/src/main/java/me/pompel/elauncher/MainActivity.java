@@ -25,8 +25,6 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.Editable;
@@ -84,7 +82,11 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(Intent.ACTION_MAIN, null);
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
         for (ResolveInfo info : packageManager.queryIntentActivities(intent, 0)) appList.add(new App(info.loadLabel(packageManager).toString(), info.activityInfo.packageName));
-        appList.sort((app1, app2) -> app1.appName.toString().compareToIgnoreCase(app2.appName.toString()));
+        java.util.Collections.sort(appList, new java.util.Comparator<App>() {
+            @Override public int compare(App a, App b) {
+                return a.appName.toString().compareToIgnoreCase(b.appName.toString());
+            }
+        });
         for (App app : appList) {
             appNames.add(app.appName);
 
@@ -171,8 +173,9 @@ public class MainActivity extends AppCompatActivity {
 
     // check if you have USAGE_STATS permission
     private boolean hasUsageStatsPermission() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) return false;
         AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), getPackageName());
+        int mode = appOps.checkOpNoThrow("android:get_usage_stats", android.os.Process.myUid(), getPackageName());
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
@@ -260,22 +263,25 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        // if it does not have USAGE_STATS and it's the first launch, open settings
-        if (!hasUsageStatsPermission() && !prefs.getBoolean("firstLaunch", false)) {
-            Intent usageAccessIntent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-            usageAccessIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(usageAccessIntent);
+        // if it does not have USAGE_STATS and it's the first launch, open settings (API 21+ only)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP
+                && !hasUsageStatsPermission() && !prefs.getBoolean("firstLaunch", false)) {
+            try {
+                Intent usageAccessIntent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                usageAccessIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(usageAccessIntent);
+            } catch (android.content.ActivityNotFoundException ignored) {}
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean("firstLaunch", true);
             editor.apply();
         }
 
         BigmeShims.queryLauncherProvider(this);
-        Window window = getWindow();
-        //window.addFlags(FLAG_LAYOUT_NO_LIMITS);
-        //window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(getColorFromAttr(androidx.appcompat.R.attr.background));
-        window.setNavigationBarColor(getColorFromAttr(androidx.appcompat.R.attr.background));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.setStatusBarColor(getColorFromAttr(androidx.appcompat.R.attr.background));
+            window.setNavigationBarColor(getColorFromAttr(androidx.appcompat.R.attr.background));
+        }
 
         appList = new ArrayList<>();
         appNames = new ArrayList<>();
@@ -346,45 +352,19 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout homescreen = findViewById(R.id.HomeScreen);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         CharSequence[] alertApps = appNames.toArray(new CharSequence[0]);
+        int maxSlots = prefs.getInt(NUMBER_OF_APPS, 8);
         int i = 0;
-        for (i = 0; i < prefs.getInt(NUMBER_OF_APPS, 8); i++) {
-            TextView textView = new TextView(this);
-            textView.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
-            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
-            textView.setTypeface(Typeface.create(!hasUsageStatsPermission() ? "sans-serif" : "sans-serif-light", Typeface.NORMAL));
-            textView.setPadding(0, 0, 0, 50);
-            textView.setText(prefs.getString(Integer.toString(i), "App"));
-            textView.setTag(i);
-            textView.setLayoutParams(params);
-            textView.setOnLongClickListener(v -> {
-                loadApps();
-                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                builder.setTitle("Select app");
-                builder.setItems(alertApps, (dialog, which) -> {
-                    AlertDialog.Builder builder1 = new AlertDialog.Builder(MainActivity.this);
-                    builder1.setTitle("Set app name");
-                    final EditText input = new EditText(MainActivity.this);
-                    input.setText(appNames.get(which));
-                    builder1.setView(input);
-                    input.setTag(appList.get(which).packageId);
-                    builder1.setPositiveButton("Add", (dialog1, which1) -> {
-                        String name = input.getText().toString();
-                        textView.setText(name);
-                        SharedPreferences.Editor editor = prefs.edit();
-                        editor.putString(String.valueOf(textView.getTag()), name);
-                        editor.putString("p" + textView.getTag(), String.valueOf(input.getTag()));
-                        editor.apply();
-                    });
-                    builder1.create();
-                    builder1.show();
-                });
-                builder.create();
-                builder.show();
-                return true;
-            });
-            textView.setOnClickListener(v -> openAppWithIntent(getPackageManager().getLaunchIntentForPackage(prefs.getString("p" + textView.getTag(), "")), true));
+        for (i = 0; i < maxSlots; i++) {
+            String assignedPkg = prefs.getString("p" + i, "");
+            // skip empty slots — only render the ones the user has assigned
+            if (assignedPkg.isEmpty()) continue;
+            TextView textView = makeSlotView(params, i, prefs.getString(Integer.toString(i), "App"), alertApps);
             homescreen.addView(textView);
         }
+
+        // trailing "+" slot to add another favorite (long-press to pick)
+        TextView addSlot = makeSlotView(params, nextFreeSlotIndex(maxSlots), "+", alertApps);
+        homescreen.addView(addSlot);
 
         if (hasUsageStatsPermission()) {
             TextView textView = new TextView(this);
@@ -442,6 +422,85 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         BigmeShims.queryLauncherProvider(this);
         homeUpdateUsage();
+    }
+
+    private int nextFreeSlotIndex(int maxSlots) {
+        for (int idx = 0; idx < maxSlots; idx++) {
+            if (prefs.getString("p" + idx, "").isEmpty()) return idx;
+        }
+        return maxSlots; // overflow — pref still works, just past the configured cap
+    }
+
+    private TextView makeSlotView(LinearLayout.LayoutParams params, int slotIndex, String label, final CharSequence[] alertApps) {
+        final TextView textView = new TextView(this);
+        textView.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
+        textView.setTypeface(Typeface.create(!hasUsageStatsPermission() ? "sans-serif" : "sans-serif-light", Typeface.NORMAL));
+        textView.setPadding(0, 0, 0, 50);
+        textView.setText(label);
+        textView.setTag(slotIndex);
+        textView.setLayoutParams(params);
+
+        final View.OnClickListener assignAction = new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                loadApps();
+                final CharSequence[] currentApps = appNames.toArray(new CharSequence[0]);
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Select app");
+                builder.setItems(currentApps, new android.content.DialogInterface.OnClickListener() {
+                    @Override public void onClick(android.content.DialogInterface dialog, final int which) {
+                        AlertDialog.Builder builder1 = new AlertDialog.Builder(MainActivity.this);
+                        builder1.setTitle("Set app name");
+                        final EditText input = new EditText(MainActivity.this);
+                        input.setText(appNames.get(which));
+                        builder1.setView(input);
+                        input.setTag(appList.get(which).packageId);
+                        final int slot = (Integer) textView.getTag();
+                        builder1.setPositiveButton("Add", new android.content.DialogInterface.OnClickListener() {
+                            @Override public void onClick(android.content.DialogInterface d, int w) {
+                                String name = input.getText().toString();
+                                SharedPreferences.Editor editor = prefs.edit();
+                                editor.putString(String.valueOf(slot), name);
+                                editor.putString("p" + slot, String.valueOf(input.getTag()));
+                                editor.apply();
+                                recreate();
+                            }
+                        });
+                        builder1.setNegativeButton("Remove", new android.content.DialogInterface.OnClickListener() {
+                            @Override public void onClick(android.content.DialogInterface d, int w) {
+                                SharedPreferences.Editor editor = prefs.edit();
+                                editor.remove(String.valueOf(slot));
+                                editor.remove("p" + slot);
+                                editor.apply();
+                                recreate();
+                            }
+                        });
+                        builder1.create();
+                        builder1.show();
+                    }
+                });
+                builder.create();
+                builder.show();
+            }
+        };
+
+        // "+" slot: tap to add. Assigned slot: long-press to edit, tap to launch.
+        if ("+".equals(label)) {
+            textView.setOnClickListener(assignAction);
+        } else {
+            textView.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    assignAction.onClick(v);
+                    return true;
+                }
+            });
+            textView.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    openAppWithIntent(getPackageManager().getLaunchIntentForPackage(prefs.getString("p" + textView.getTag(), "")), true);
+                }
+            });
+        }
+        return textView;
     }
 
     private boolean canMakePhoneCall() {
@@ -571,6 +630,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Set<String> listActiveProcessPackages() {
         Set<String> activePackages = new HashSet<>();
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) return activePackages;
         UsageStatsManager mUsageStatsManager = (UsageStatsManager)getSystemService(Context.USAGE_STATS_SERVICE);
         long endTime = System.currentTimeMillis();
         long beginTime = endTime - 1000*60*60; // last 60 minutes
@@ -625,10 +685,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String lastActiveProcessPackage() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) return "";
         Set<String> excludePackages = new HashSet<>();
 
         excludePackages.add(getDefaultBrowserPackage());
-        getLaunchersResolveInfos().forEach(resolveInfo -> excludePackages.add(resolveInfo.activityInfo.packageName));
+        for (ResolveInfo ri : getLaunchersResolveInfos()) excludePackages.add(ri.activityInfo.packageName);
         excludePackages.add(getDefaultPhoneAppPackage());
         excludePackages.add(ELAUNCHER_PACKAGE);
         excludePackages.addAll(getHomescreenPackages());
@@ -680,8 +741,11 @@ public class MainActivity extends AppCompatActivity {
     private int getColorFromAttr(int attr) {
         TypedValue typedValue = new TypedValue();
         int color;
-        try (TypedArray a = obtainStyledAttributes(typedValue.data, new int[]{attr})) {
+        TypedArray a = obtainStyledAttributes(typedValue.data, new int[]{attr});
+        try {
             color = a.getColor(0, 0);
+        } finally {
+            a.recycle();
         }
         return color;
     }
