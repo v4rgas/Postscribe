@@ -352,19 +352,45 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout homescreen = findViewById(R.id.HomeScreen);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         CharSequence[] alertApps = appNames.toArray(new CharSequence[0]);
-        int maxSlots = prefs.getInt(NUMBER_OF_APPS, 8);
         int i = 0;
-        for (i = 0; i < maxSlots; i++) {
-            String assignedPkg = prefs.getString("p" + i, "");
-            // skip empty slots — only render the ones the user has assigned
-            if (assignedPkg.isEmpty()) continue;
-            TextView textView = makeSlotView(params, i, prefs.getString(Integer.toString(i), "App"), alertApps);
+        for (i = 0; i < prefs.getInt(NUMBER_OF_APPS, 8); i++) {
+            TextView textView = new TextView(this);
+            textView.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
+            textView.setTypeface(Typeface.create(!hasUsageStatsPermission() ? "sans-serif" : "sans-serif-light", Typeface.NORMAL));
+            textView.setPadding(0, 0, 0, 50);
+            textView.setText(prefs.getString(Integer.toString(i), "App"));
+            textView.setTag(i);
+            textView.setLayoutParams(params);
+            textView.setOnLongClickListener(v -> {
+                loadApps();
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Select app");
+                builder.setItems(alertApps, (dialog, which) -> {
+                    AlertDialog.Builder builder1 = new AlertDialog.Builder(MainActivity.this);
+                    builder1.setTitle("Set app name");
+                    final EditText input = new EditText(MainActivity.this);
+                    input.setText(appNames.get(which));
+                    builder1.setView(input);
+                    input.setTag(appList.get(which).packageId);
+                    builder1.setPositiveButton("Add", (dialog1, which1) -> {
+                        String name = input.getText().toString();
+                        textView.setText(name);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putString(String.valueOf(textView.getTag()), name);
+                        editor.putString("p" + textView.getTag(), String.valueOf(input.getTag()));
+                        editor.apply();
+                    });
+                    builder1.create();
+                    builder1.show();
+                });
+                builder.create();
+                builder.show();
+                return true;
+            });
+            textView.setOnClickListener(v -> openAppWithIntent(getPackageManager().getLaunchIntentForPackage(prefs.getString("p" + textView.getTag(), "")), true));
             homescreen.addView(textView);
         }
-
-        // trailing "+" slot to add another favorite (long-press to pick)
-        TextView addSlot = makeSlotView(params, nextFreeSlotIndex(maxSlots), "+", alertApps);
-        homescreen.addView(addSlot);
 
         if (hasUsageStatsPermission()) {
             TextView textView = new TextView(this);
@@ -424,84 +450,6 @@ public class MainActivity extends AppCompatActivity {
         homeUpdateUsage();
     }
 
-    private int nextFreeSlotIndex(int maxSlots) {
-        for (int idx = 0; idx < maxSlots; idx++) {
-            if (prefs.getString("p" + idx, "").isEmpty()) return idx;
-        }
-        return maxSlots; // overflow — pref still works, just past the configured cap
-    }
-
-    private TextView makeSlotView(LinearLayout.LayoutParams params, int slotIndex, String label, final CharSequence[] alertApps) {
-        final TextView textView = new TextView(this);
-        textView.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
-        textView.setTypeface(Typeface.create(!hasUsageStatsPermission() ? "sans-serif" : "sans-serif-light", Typeface.NORMAL));
-        textView.setPadding(0, 0, 0, 50);
-        textView.setText(label);
-        textView.setTag(slotIndex);
-        textView.setLayoutParams(params);
-
-        final View.OnClickListener assignAction = new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                loadApps();
-                final CharSequence[] currentApps = appNames.toArray(new CharSequence[0]);
-                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                builder.setTitle("Select app");
-                builder.setItems(currentApps, new android.content.DialogInterface.OnClickListener() {
-                    @Override public void onClick(android.content.DialogInterface dialog, final int which) {
-                        AlertDialog.Builder builder1 = new AlertDialog.Builder(MainActivity.this);
-                        builder1.setTitle("Set app name");
-                        final EditText input = new EditText(MainActivity.this);
-                        input.setText(appNames.get(which));
-                        builder1.setView(input);
-                        input.setTag(appList.get(which).packageId);
-                        final int slot = (Integer) textView.getTag();
-                        builder1.setPositiveButton("Add", new android.content.DialogInterface.OnClickListener() {
-                            @Override public void onClick(android.content.DialogInterface d, int w) {
-                                String name = input.getText().toString();
-                                SharedPreferences.Editor editor = prefs.edit();
-                                editor.putString(String.valueOf(slot), name);
-                                editor.putString("p" + slot, String.valueOf(input.getTag()));
-                                editor.apply();
-                                recreate();
-                            }
-                        });
-                        builder1.setNegativeButton("Remove", new android.content.DialogInterface.OnClickListener() {
-                            @Override public void onClick(android.content.DialogInterface d, int w) {
-                                SharedPreferences.Editor editor = prefs.edit();
-                                editor.remove(String.valueOf(slot));
-                                editor.remove("p" + slot);
-                                editor.apply();
-                                recreate();
-                            }
-                        });
-                        builder1.create();
-                        builder1.show();
-                    }
-                });
-                builder.create();
-                builder.show();
-            }
-        };
-
-        // "+" slot: tap to add. Assigned slot: long-press to edit, tap to launch.
-        if ("+".equals(label)) {
-            textView.setOnClickListener(assignAction);
-        } else {
-            textView.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override public boolean onLongClick(View v) {
-                    assignAction.onClick(v);
-                    return true;
-                }
-            });
-            textView.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    openAppWithIntent(getPackageManager().getLaunchIntentForPackage(prefs.getString("p" + textView.getTag(), "")), true);
-                }
-            });
-        }
-        return textView;
-    }
 
     private boolean canMakePhoneCall() {
         PackageManager packageManager = getPackageManager();
