@@ -14,6 +14,7 @@ public class UploadService extends Service {
     public static final int DEFAULT_PORT = 8080;
     public static final String EXTRA_PORT = "port";
     public static final String ACTION_RESTART = "me.pompel.elauncher.RESTART";
+    public static final String ACTION_STATE_CHANGED = "me.pompel.elauncher.SERVER_STATE_CHANGED";
     public static final String MDNS_NAME = "postscribe";
     public static final String MDNS_TYPE = "_http._tcp.";
 
@@ -53,6 +54,7 @@ public class UploadService extends Service {
                 runningPort = port;
                 Log.i(TAG, "upload server listening on " + port);
                 registerMdns(port);
+                sendBroadcast(new Intent(ACTION_STATE_CHANGED).setPackage(getPackageName()));
             } catch (IOException e) {
                 Log.e(TAG, "failed to start on port " + port, e);
                 server = null;
@@ -71,6 +73,7 @@ public class UploadService extends Service {
             server = null;
             runningPort = -1;
             Log.i(TAG, "upload server stopped");
+            sendBroadcast(new Intent(ACTION_STATE_CHANGED).setPackage(getPackageName()));
         }
         super.onDestroy();
     }

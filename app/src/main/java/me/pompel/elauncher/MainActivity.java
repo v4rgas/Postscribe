@@ -353,10 +353,6 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         CharSequence[] alertApps = appNames.toArray(new CharSequence[0]);
 
-        if (prefs.getBoolean("show_wifi_toggle", false)) {
-            homescreen.addView(buildWifiToggleView(params));
-        }
-
         int i = 0;
         for (i = 0; i < prefs.getInt(NUMBER_OF_APPS, 8); i++) {
             TextView textView = new TextView(this);
@@ -455,6 +451,14 @@ public class MainActivity extends AppCompatActivity {
         homeUpdateUsage();
         ensureUploadServerMatchesPref();
         refreshUploadStatus();
+        refreshWifiToggle();
+        registerStateReceivers();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterStateReceivers();
     }
 
     private void ensureUploadServerMatchesPref() {
@@ -488,13 +492,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private TextView buildWifiToggleView(LinearLayout.LayoutParams params) {
-        final TextView tv = new TextView(this);
-        tv.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
-        tv.setTypeface(Typeface.create("sans-serif", Typeface.ITALIC));
-        tv.setPadding(0, 0, 0, 30);
-        tv.setLayoutParams(params);
+    private android.content.BroadcastReceiver wifiStateReceiver;
+
+    private void refreshWifiToggle() {
+        final TextView tv = findViewById(R.id.WifiToggle);
+        if (tv == null) return;
+        if (!prefs.getBoolean("show_wifi_toggle", false)) {
+            tv.setVisibility(View.GONE);
+            return;
+        }
+        tv.setVisibility(View.VISIBLE);
         applyWifiToggleLabel(tv);
         tv.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -502,26 +509,56 @@ public class MainActivity extends AppCompatActivity {
                     android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
                             getApplicationContext().getSystemService(WIFI_SERVICE);
                     if (wm == null) return;
-                    boolean next = !wm.isWifiEnabled();
-                    wm.setWifiEnabled(next);
+                    int state = wm.getWifiState();
+                    boolean currentlyOn = state == android.net.wifi.WifiManager.WIFI_STATE_ENABLED
+                            || state == android.net.wifi.WifiManager.WIFI_STATE_ENABLING;
+                    wm.setWifiEnabled(!currentlyOn);
+                    // immediate optimistic feedback; the broadcast will confirm
+                    tv.setText(!currentlyOn ? "wifi on..." : "wifi off...");
                 } catch (Exception ignored) {}
-                // give the radio a moment, then refresh the label
-                tv.postDelayed(new Runnable() {
-                    @Override public void run() { applyWifiToggleLabel(tv); }
-                }, 400);
             }
         });
-        return tv;
     }
 
     private void applyWifiToggleLabel(TextView tv) {
         try {
             android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
                     getApplicationContext().getSystemService(WIFI_SERVICE);
-            boolean on = wm != null && wm.isWifiEnabled();
-            tv.setText(on ? "wifi on" : "wifi off");
+            int state = wm != null ? wm.getWifiState() : android.net.wifi.WifiManager.WIFI_STATE_UNKNOWN;
+            switch (state) {
+                case android.net.wifi.WifiManager.WIFI_STATE_ENABLED:  tv.setText("wifi on"); break;
+                case android.net.wifi.WifiManager.WIFI_STATE_ENABLING: tv.setText("wifi on..."); break;
+                case android.net.wifi.WifiManager.WIFI_STATE_DISABLING: tv.setText("wifi off..."); break;
+                case android.net.wifi.WifiManager.WIFI_STATE_DISABLED:  tv.setText("wifi off"); break;
+                default: tv.setText("wifi ?");
+            }
         } catch (Exception e) {
             tv.setText("wifi ?");
+        }
+    }
+
+    private void registerStateReceivers() {
+        if (wifiStateReceiver != null) return;
+        wifiStateReceiver = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(android.content.Context ctx, android.content.Intent intent) {
+                String action = intent != null ? intent.getAction() : null;
+                if (android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION.equals(action)) {
+                    TextView tv = findViewById(R.id.WifiToggle);
+                    if (tv != null && tv.getVisibility() == View.VISIBLE) applyWifiToggleLabel(tv);
+                }
+                refreshUploadStatus();
+            }
+        };
+        android.content.IntentFilter filter = new android.content.IntentFilter();
+        filter.addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION);
+        filter.addAction(UploadService.ACTION_STATE_CHANGED);
+        registerReceiver(wifiStateReceiver, filter);
+    }
+
+    private void unregisterStateReceivers() {
+        if (wifiStateReceiver != null) {
+            try { unregisterReceiver(wifiStateReceiver); } catch (Exception ignored) {}
+            wifiStateReceiver = null;
         }
     }
 

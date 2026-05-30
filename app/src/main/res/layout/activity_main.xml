@@ -18,18 +18,39 @@
         android:animateLayoutChanges="false"
         ></LinearLayout>
 
-    <TextView
-        android:id="@+id/UploadStatus"
+    <LinearLayout
+        android:id="@+id/BottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:padding="8dp"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:textSize="12sp"
-        android:textColor="?attr/colorPrimary"
-        android:fontFamily="monospace"
-        android:visibility="gone" />
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/WifiToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:textColor="?attr/colorPrimary"
+            android:fontFamily="sans-serif-light"
+            android:textStyle="italic"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/UploadStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:textSize="12sp"
+            android:textColor="?attr/colorPrimary"
+            android:fontFamily="monospace"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/AppDrawer"
