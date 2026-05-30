@@ -13,6 +13,14 @@
         app:title="@string/dark_mode_title"
         app:summary="@string/dark_mode_summary" />
 
+    <PreferenceCategory app:title="Home screen">
+        <SwitchPreferenceCompat
+            app:key="show_wifi_toggle"
+            app:title="Wi-Fi toggle"
+            app:summary="Show a Wi-Fi on/off button on the home screen."
+            app:defaultValue="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="Developer">
         <SwitchPreferenceCompat
             app:key="upload_server_enabled"

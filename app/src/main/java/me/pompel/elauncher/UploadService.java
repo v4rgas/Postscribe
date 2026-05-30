@@ -2,6 +2,8 @@ package me.pompel.elauncher;
 
 import android.app.Service;
 import android.content.Intent;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -12,12 +14,20 @@ public class UploadService extends Service {
     public static final int DEFAULT_PORT = 8080;
     public static final String EXTRA_PORT = "port";
     public static final String ACTION_RESTART = "me.pompel.elauncher.RESTART";
+    public static final String MDNS_NAME = "postscribe";
+    public static final String MDNS_TYPE = "_http._tcp.";
 
     private static volatile UploadServer server;
     private static volatile int runningPort = -1;
+    private static volatile String mdnsHostname;
+
+    private NsdManager nsd;
+    private NsdManager.RegistrationListener mdnsListener;
 
     public static boolean isRunning() { return server != null; }
     public static int runningPort() { return runningPort; }
+    /** The advertised mDNS hostname (e.g. "postscribe.local"), or null if not registered. */
+    public static String mdnsHostname() { return mdnsHostname; }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -28,6 +38,7 @@ public class UploadService extends Service {
         if (intent != null && intent.hasExtra(EXTRA_PORT)) port = intent.getIntExtra(EXTRA_PORT, port);
         boolean restart = intent != null && ACTION_RESTART.equals(intent.getAction());
         if (restart && server != null) {
+            unregisterMdns();
             server.stop();
             server = null;
             runningPort = -1;
@@ -41,6 +52,7 @@ public class UploadService extends Service {
                 server = s;
                 runningPort = port;
                 Log.i(TAG, "upload server listening on " + port);
+                registerMdns(port);
             } catch (IOException e) {
                 Log.e(TAG, "failed to start on port " + port, e);
                 server = null;
@@ -53,6 +65,7 @@ public class UploadService extends Service {
 
     @Override
     public void onDestroy() {
+        unregisterMdns();
         if (server != null) {
             server.stop();
             server = null;
@@ -60,6 +73,47 @@ public class UploadService extends Service {
             Log.i(TAG, "upload server stopped");
         }
         super.onDestroy();
+    }
+
+    private void registerMdns(int port) {
+        try {
+            nsd = (NsdManager) getSystemService(NSD_SERVICE);
+            if (nsd == null) return;
+            NsdServiceInfo info = new NsdServiceInfo();
+            info.setServiceName(MDNS_NAME);
+            info.setServiceType(MDNS_TYPE);
+            info.setPort(port);
+            mdnsListener = new NsdManager.RegistrationListener() {
+                @Override public void onServiceRegistered(NsdServiceInfo registered) {
+                    String name = registered.getServiceName();
+                    mdnsHostname = name + ".local";
+                    Log.i(TAG, "mDNS registered as " + name);
+                }
+                @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) {
+                    Log.w(TAG, "mDNS registration failed: " + errorCode);
+                    mdnsHostname = null;
+                }
+                @Override public void onServiceUnregistered(NsdServiceInfo info) {
+                    Log.i(TAG, "mDNS unregistered");
+                    mdnsHostname = null;
+                }
+                @Override public void onUnregistrationFailed(NsdServiceInfo info, int errorCode) {
+                    Log.w(TAG, "mDNS unregistration failed: " + errorCode);
+                }
+            };
+            nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, mdnsListener);
+        } catch (Exception e) {
+            Log.w(TAG, "mDNS unavailable", e);
+            mdnsHostname = null;
+        }
+    }
+
+    private void unregisterMdns() {
+        if (nsd != null && mdnsListener != null) {
+            try { nsd.unregisterService(mdnsListener); } catch (Exception ignored) {}
+        }
+        mdnsListener = null;
+        mdnsHostname = null;
     }
 
     @Override

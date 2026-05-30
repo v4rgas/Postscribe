@@ -352,6 +352,11 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout homescreen = findViewById(R.id.HomeScreen);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         CharSequence[] alertApps = appNames.toArray(new CharSequence[0]);
+
+        if (prefs.getBoolean("show_wifi_toggle", false)) {
+            homescreen.addView(buildWifiToggleView(params));
+        }
+
         int i = 0;
         for (i = 0; i < prefs.getInt(NUMBER_OF_APPS, 8); i++) {
             TextView textView = new TextView(this);
@@ -471,10 +476,52 @@ public class MainActivity extends AppCompatActivity {
         TextView status = findViewById(R.id.UploadStatus);
         if (status == null) return;
         if (UploadService.isRunning()) {
-            status.setText("HTTP server running at http://" + DevInfo.wifiIp(this) + ":" + UploadService.runningPort());
+            int port = UploadService.runningPort();
+            String mdns = UploadService.mdnsHostname();
+            String host = mdns != null ? mdns : DevInfo.wifiIp(this);
+            String line = "HTTP server: http://" + host + ":" + port;
+            if (mdns != null) line += "  (or http://" + DevInfo.wifiIp(this) + ":" + port + ")";
+            status.setText(line);
             status.setVisibility(View.VISIBLE);
         } else {
             status.setVisibility(View.GONE);
+        }
+    }
+
+    private TextView buildWifiToggleView(LinearLayout.LayoutParams params) {
+        final TextView tv = new TextView(this);
+        tv.setTextColor(getColorFromAttr(androidx.appcompat.R.attr.colorPrimary));
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
+        tv.setTypeface(Typeface.create("sans-serif", Typeface.ITALIC));
+        tv.setPadding(0, 0, 0, 30);
+        tv.setLayoutParams(params);
+        applyWifiToggleLabel(tv);
+        tv.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try {
+                    android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
+                            getApplicationContext().getSystemService(WIFI_SERVICE);
+                    if (wm == null) return;
+                    boolean next = !wm.isWifiEnabled();
+                    wm.setWifiEnabled(next);
+                } catch (Exception ignored) {}
+                // give the radio a moment, then refresh the label
+                tv.postDelayed(new Runnable() {
+                    @Override public void run() { applyWifiToggleLabel(tv); }
+                }, 400);
+            }
+        });
+        return tv;
+    }
+
+    private void applyWifiToggleLabel(TextView tv) {
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
+                    getApplicationContext().getSystemService(WIFI_SERVICE);
+            boolean on = wm != null && wm.isWifiEnabled();
+            tv.setText(on ? "wifi on" : "wifi off");
+        } catch (Exception e) {
+            tv.setText("wifi ?");
         }
     }
 
