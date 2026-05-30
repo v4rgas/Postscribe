@@ -3,84 +3,46 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>eLauncher — index</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,700;1,9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Postscribe files</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="grain" aria-hidden="true"></div>
-
-    <header class="masthead">
-        <div class="masthead-inner">
-            <div class="brand">
-                <span class="brand-mark">eL</span>
-                <div class="brand-meta">
-                    <span class="brand-line">eLauncher</span>
-                    <span class="brand-sub">Vol. I &middot; File Index</span>
-                </div>
-            </div>
-            <div class="meta">
-                <span id="count-badge" class="badge">0 items</span>
-                <span class="dateline" id="dateline"></span>
-            </div>
+    <header>
+        <div class="container">
+            <h1>Postscribe files</h1>
+            <nav id="crumbs" class="crumbs"></nav>
         </div>
-        <hr class="rule rule-thick">
-        <nav id="crumbs" class="crumbs"></nav>
-        <hr class="rule">
     </header>
 
-    <main>
-        <section class="listing">
-            <div class="listing-head">
-                <span class="col col-no">№</span>
-                <span class="col col-name">Entry</span>
-                <span class="col col-size">Size</span>
-                <span class="col col-actions">Action</span>
-            </div>
-            <ol id="entries" class="entries"></ol>
-            <div id="empty" class="empty" hidden>
-                <p class="empty-mark">—</p>
-                <p class="empty-text">This drawer is empty.</p>
-            </div>
+    <main class="container">
+        <section class="listing card">
+            <header class="listing-head">
+                <span class="col-name">Name</span>
+                <span class="col-size">Size</span>
+                <span class="col-actions"></span>
+            </header>
+            <ul id="entries" class="entries"></ul>
+            <p id="empty" class="empty" hidden>This folder is empty.</p>
         </section>
 
-        <section class="upload">
-            <div class="upload-head">
-                <h2><span class="ampersand">&amp;</span> Deposit to <code id="here"></code></h2>
-                <p class="upload-sub">Drag files into the card or use the picker. Multiple accepted.</p>
-            </div>
+        <section class="upload card">
+            <h2>Upload to <code id="here"></code></h2>
             <form id="upload-form">
                 <label class="dropzone" id="dropzone">
                     <input id="file-input" type="file" multiple>
-                    <span class="dropzone-mark">+</span>
-                    <span class="dropzone-text">Drop files here</span>
-                    <span class="dropzone-or">or click to browse</span>
+                    <span class="dropzone-text">Choose files or drop here</span>
                 </label>
                 <ul id="queue" class="queue"></ul>
-                <div class="submit-row">
-                    <button id="upload-btn" type="submit" disabled>
-                        <span class="btn-label">Deposit</span>
-                        <span class="btn-arrow">&rarr;</span>
-                    </button>
-                </div>
+                <button id="upload-btn" type="submit" disabled>Upload</button>
             </form>
         </section>
     </main>
 
-    <footer>
-        <hr class="rule rule-thick">
-        <div class="colophon">
-            <span class="colophon-set">Set in Fraunces &amp; JetBrains Mono</span>
-            <span class="colophon-by">by <a href="https://github.com/v4rgas/eLauncher" target="_blank" rel="noopener">v4rgas</a></span>
-        </div>
-    </footer>
+    <div id="toast" class="toast" hidden></div>
 
-    <div id="toast" class="toast" hidden>
-        <span class="toast-mark">!</span>
-        <span class="toast-msg"></span>
-    </div>
+    <footer class="container">
+        <p>by <a href="https://github.com/v4rgas/Postscribe" target="_blank" rel="noopener">v4rgas</a></p>
+    </footer>
 
     <script src="/static/app.js"></script>
 </body>
