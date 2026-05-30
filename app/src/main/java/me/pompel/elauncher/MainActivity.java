@@ -448,6 +448,34 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         BigmeShims.queryLauncherProvider(this);
         homeUpdateUsage();
+        ensureUploadServerMatchesPref();
+        refreshUploadStatus();
+    }
+
+    private void ensureUploadServerMatchesPref() {
+        // user wants the server on but it isn't running: try to start it
+        // (BootReceiver may not have fired, e.g. quirky firmware)
+        boolean wanted = prefs.getBoolean("upload_server_enabled", false);
+        if (wanted && !UploadService.isRunning()) {
+            try {
+                android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+                android.net.NetworkInfo info = cm != null ? cm.getActiveNetworkInfo() : null;
+                if (info != null && info.isConnected()) {
+                    startService(new android.content.Intent(this, UploadService.class));
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void refreshUploadStatus() {
+        TextView status = findViewById(R.id.UploadStatus);
+        if (status == null) return;
+        if (UploadService.isRunning()) {
+            status.setText("HTTP server running at http://" + DevInfo.wifiIp(this) + ":" + UploadService.runningPort());
+            status.setVisibility(View.VISIBLE);
+        } else {
+            status.setVisibility(View.GONE);
+        }
     }
 
 

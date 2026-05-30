@@ -12,4 +12,53 @@
         app:key="dark_mode_preference"
         app:title="@string/dark_mode_title"
         app:summary="@string/dark_mode_summary" />
+
+    <PreferenceCategory app:title="Developer">
+        <SwitchPreferenceCompat
+            app:key="upload_server_enabled"
+            app:title="HTTP upload server"
+            app:summary="Off"
+            app:defaultValue="false" />
+        <EditTextPreference
+            app:key="upload_server_password"
+            app:title="Upload password"
+            app:summary="Empty = no auth. Username is 'elauncher'."
+            app:dialogTitle="Set upload password" />
+        <EditTextPreference
+            app:key="upload_server_port"
+            app:title="Upload port"
+            app:summary="Default 8080. Ports under 1024 (like 80) need root and will not bind."
+            app:dialogTitle="Set port"
+            app:defaultValue="8080" />
+        <EditTextPreference
+            app:key="upload_server_root"
+            app:title="Exposed folder"
+            app:summary="Absolute path. Default /sdcard."
+            app:dialogTitle="Set exposed folder"
+            app:defaultValue="/sdcard" />
+        <Preference
+            app:key="dev_wifi_ip"
+            app:title="Wi-Fi IP"
+            app:selectable="false" />
+        <Preference
+            app:key="dev_all_ips"
+            app:title="All interfaces"
+            app:selectable="false" />
+        <Preference
+            app:key="dev_android"
+            app:title="Android version"
+            app:selectable="false" />
+        <Preference
+            app:key="dev_model"
+            app:title="Device"
+            app:selectable="false" />
+        <Preference
+            app:key="dev_fingerprint"
+            app:title="Build fingerprint"
+            app:selectable="false" />
+        <Preference
+            app:key="dev_storage"
+            app:title="Storage"
+            app:selectable="false" />
+    </PreferenceCategory>
 </PreferenceScreen>

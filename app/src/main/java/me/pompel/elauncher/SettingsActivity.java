@@ -79,22 +79,101 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
-            
+
             // Initialize dark mode switch to show current system state if not explicitly set
-            androidx.preference.SwitchPreferenceCompat darkModePreference = 
+            androidx.preference.SwitchPreferenceCompat darkModePreference =
                 findPreference("dark_mode_preference");
             if (darkModePreference != null) {
-                android.content.SharedPreferences prefs = 
+                android.content.SharedPreferences prefs =
                     androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
-                
+
                 // Only set the visual state if the preference hasn't been explicitly set
                 if (!prefs.contains("dark_mode_preference")) {
-                    boolean systemDarkMode = (getResources().getConfiguration().uiMode & 
-                            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+                    boolean systemDarkMode = (getResources().getConfiguration().uiMode &
+                            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                             android.content.res.Configuration.UI_MODE_NIGHT_YES;
                     darkModePreference.setChecked(systemDarkMode);
                 }
             }
+
+            wireDeveloperSection();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            refreshDeveloperSummaries();
+        }
+
+        private void wireDeveloperSection() {
+            final android.content.Context ctx = requireContext().getApplicationContext();
+            final androidx.preference.SwitchPreferenceCompat uploadSwitch = findPreference("upload_server_enabled");
+            if (uploadSwitch != null) {
+                uploadSwitch.setChecked(UploadService.isRunning());
+                uploadSwitch.setSummary(uploadSummary(ctx));
+                uploadSwitch.setOnPreferenceChangeListener(new androidx.preference.Preference.OnPreferenceChangeListener() {
+                    @Override
+                    public boolean onPreferenceChange(androidx.preference.Preference preference, Object newValue) {
+                        boolean enable = Boolean.TRUE.equals(newValue);
+                        android.content.Intent intent = new android.content.Intent(ctx, UploadService.class);
+                        if (enable) {
+                            ctx.startService(intent);
+                        } else {
+                            ctx.stopService(intent);
+                        }
+                        uploadSwitch.setSummary(uploadSummary(ctx));
+                        return true;
+                    }
+                });
+            }
+
+            // restart the server when the password or port changes
+            androidx.preference.Preference.OnPreferenceChangeListener restartIfRunning =
+                new androidx.preference.Preference.OnPreferenceChangeListener() {
+                    @Override
+                    public boolean onPreferenceChange(androidx.preference.Preference preference, Object newValue) {
+                        if (UploadService.isRunning()) {
+                            android.content.Intent intent = new android.content.Intent(ctx, UploadService.class);
+                            intent.setAction(UploadService.ACTION_RESTART);
+                            ctx.startService(intent);
+                        }
+                        return true;
+                    }
+                };
+            androidx.preference.EditTextPreference passwordPref = findPreference("upload_server_password");
+            if (passwordPref != null) passwordPref.setOnPreferenceChangeListener(restartIfRunning);
+            androidx.preference.EditTextPreference portPref = findPreference("upload_server_port");
+            if (portPref != null) portPref.setOnPreferenceChangeListener(restartIfRunning);
+            androidx.preference.EditTextPreference rootPref = findPreference("upload_server_root");
+            if (rootPref != null) rootPref.setOnPreferenceChangeListener(restartIfRunning);
+        }
+
+        private String uploadSummary(android.content.Context ctx) {
+            if (!UploadService.isRunning()) return "Off";
+            String ip = DevInfo.wifiIp(ctx);
+            int port = UploadService.runningPort();
+            return "On — http://" + ip + ":" + port;
+        }
+
+        private void refreshDeveloperSummaries() {
+            android.content.Context ctx = requireContext().getApplicationContext();
+            setSummary("dev_wifi_ip", DevInfo.wifiIp(ctx));
+            setSummary("dev_all_ips", DevInfo.allIps());
+            setSummary("dev_android", DevInfo.androidVersion());
+            setSummary("dev_model", DevInfo.deviceModel());
+            setSummary("dev_fingerprint", DevInfo.buildFingerprint());
+            setSummary("dev_storage", DevInfo.storageFree());
+
+            androidx.preference.SwitchPreferenceCompat uploadSwitch = findPreference("upload_server_enabled");
+            if (uploadSwitch != null) {
+                uploadSwitch.setChecked(UploadService.isRunning());
+                uploadSwitch.setSummary(uploadSummary(ctx));
+            }
+        }
+
+        private void setSummary(String key, String value) {
+            androidx.preference.Preference p = findPreference(key);
+            if (p != null) p.setSummary(value);
         }
     }
 }

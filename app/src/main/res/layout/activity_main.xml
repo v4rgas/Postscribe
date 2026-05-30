@@ -18,6 +18,19 @@
         android:animateLayoutChanges="false"
         ></LinearLayout>
 
+    <TextView
+        android:id="@+id/UploadStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:padding="8dp"
+        android:textAlignment="center"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="?attr/colorPrimary"
+        android:fontFamily="monospace"
+        android:visibility="gone" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/AppDrawer"
         android:layout_width="match_parent"
